@@ -1,45 +1,40 @@
-<!-- DragOn is an encapsulated-state element -->
+<!-- DragElement is an encapsulated-state element -->
 <script setup lang="ts">
 	/* eslint-disable no-mixed-spaces-and-tabs */
 
 	// Vue Imports:
 	import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 	// Drag Store Import:
-	import { isOverValidDropOnComponent, getEligibleDropId } from '../helpers/dragOnHelpers';
+	import { isHoveringOverValidElement, getEligibleDropID } from '../helpers/dragHelpers';
 
 	// Props: NOTE: All props are optional - Some props if provided, require other props
-	const props = withDefaults(
-		defineProps<{
-			// If any below used; all are required: - These allow DragOn to be dropped into specific DropElements
-			dragInfo?: {
-				dragType: number | string;
-				dragId: number;
-				dropId: number;
-				dropHandler: (
-					dropType: number | string,
-					dragId: number,
-					droppedIntoId: number | string,
-					droppedFromId: number | string,
-				) => void;
-			};
-			// Optional - Can be used regardless of if the above props are supplied
-			offset?: [string, string];
-			bounds?: {
-				top?: number;
-				right?: number;
-				bottom?: number;
-				left?: number;
-			};
-			preventX?: boolean;
-			preventY?: boolean;
-			hoverClass?: string;
-			canBeDropped?: (dragType: number | string, dragId: number | string) => boolean;
-			disabled?: boolean;
-		}>(),
-		{
-			disabled: false,
-		},
-	);
+	const props = defineProps<{
+		// If any below used; all are required: - These allow DragElement to be dropped into specific DropElements
+		dragInit?: {
+			dragType: number | string; // This Elements
+			dragId: number;
+			dropId: number;
+			dropHandler: (
+				dropType: number | string,
+				dragID: number,
+				droppedIntoId: number | string,
+				droppedFromId: number | string,
+			) => void;
+		};
+		// Optional - Can be used regardless of if the above props are supplied
+		startingOffset?: [string, string];
+		bounds?: {
+			top?: number;
+			right?: number;
+			bottom?: number;
+			left?: number;
+		};
+		preventX?: boolean;
+		preventY?: boolean;
+		hoverClass?: string;
+		canBeDropped?: (dragType: number | string, dragId: number | string) => boolean;
+		disabled?: boolean;
+	}>();
 
 	// Lifecycle Hooks:
 
@@ -47,8 +42,8 @@
 	// props.startingOffset used to space elements manually from initialization
 	onMounted(() => {
 		dragCurrentLocation.value = [
-			props.offset ? props.offset[0] : '0px',
-			props.offset ? props.offset[1] : '0px',
+			props.startingOffset ? props.startingOffset[0] : '0px',
+			props.startingOffset ? props.startingOffset[1] : '0px',
 		];
 	});
 
@@ -58,9 +53,10 @@
 	});
 
 	// State:
+
 	const dragCurrentLocation = ref<[string, string]>(['0px', '0px']);
 	const dragStartingLocation = ref<[string, string]>(['0px', '0px']);
-	const DragOnReference = ref<HTMLDivElement>(); // Reference to DragOn to get
+	const dragElementReference = ref<HTMLDivElement>(); // Reference to DragElement to get
 	const isCurrentlyDragged = ref<boolean>(false);
 
 	// Update and prevent pointer events if user is currently dragging this element
@@ -109,7 +105,7 @@
 		dragHandler(event.touches[0].clientY, event.touches[0].clientX);
 	};
 
-	// When user clicks and holds onto a DragOn, kick off listeners to handle everything else
+	// When user clicks and holds onto a DragElement, kick off listeners to handle everything else
 	const mouseDragStartHandler = (event: MouseEvent) => {
 		if (props.disabled === false) {
 			// Capture current location in case drop is unsuccessful
@@ -135,7 +131,7 @@
 
 	// While moving Mouse or Touch:
 	const dragHandler = (vertical: number, horizontal: number) => {
-		isValidHovering.value = isOverValidDropOnComponent(props.dragInfo?.dragType);
+		isValidHovering.value = isHoveringOverValidElement(props.dragInit?.dragType);
 		dragCurrentLocation.value = props.bounds
 			? checkBounds(vertical, horizontal)
 			: [
@@ -148,25 +144,25 @@
 	const dragStopHandler = () => {
 		cleanupSideEffects();
 		// Run drop handler only if dragType, dragId, and callback were provided
-		if (props.dragInfo) {
+		if (props.dragInit) {
 			// If user passed in a callback to check if element can be dropped or not
 			if (
 				props.canBeDropped &&
-				!props.canBeDropped(props.dragInfo.dragType, props.dragInfo.dragId)
+				!props.canBeDropped(props.dragInit.dragType, props.dragInit.dragId)
 			) {
 				dragCurrentLocation.value = [...dragStartingLocation.value];
 				return;
 			}
-			const intoDropElementIndex = getEligibleDropId(
-				props.dragInfo.dragType,
-				props.dragInfo.dropId,
+			const intoDropElementIndex = getEligibleDropID(
+				props.dragInit.dragType,
+				props.dragInit.dropId,
 			);
 			if (intoDropElementIndex !== null) {
-				props.dragInfo.dropHandler(
-					props.dragInfo.dragType,
-					props.dragInfo.dragId,
+				props.dragInit.dropHandler(
+					props.dragInit.dragType,
+					props.dragInit.dragId,
 					intoDropElementIndex,
-					props.dragInfo.dropId,
+					props.dragInit.dropId,
 				);
 			} else {
 				dragCurrentLocation.value = [...dragStartingLocation.value];
@@ -177,8 +173,8 @@
 
 <template>
 	<div
-		ref="DragOnReference"
-		class="DragOn"
+		ref="dragElementReference"
+		class="dragElement"
 		:class="{ [String(props.hoverClass)]: isValidHovering }"
 		@mousedown.prevent="mouseDragStartHandler"
 		@touchstart.prevent="touchDragStartHandler"
@@ -189,13 +185,12 @@
 </template>
 
 <style scoped>
-	.DragOn {
-		position: v-bind('props.dragInfo && !props.disabled ? "relative" : "absolute"');
+	.dragElement {
+		position: v-bind('props.dragInit && !props.disabled ? "relative" : "absolute"');
 		top: v-bind('dragCurrentLocation[0]');
 		left: v-bind('dragCurrentLocation[1]');
 	}
-
-	.DragOn:active {
+	.dragElement:active {
 		position: absolute;
 	}
 </style>
